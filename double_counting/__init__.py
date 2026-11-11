@@ -518,13 +518,30 @@ class DoubleCountingInterface(MadGraphCmd):
                 logger.info(descriptions[key][display])
                 logger.info('    found in: ' + ', '.join(sorted(shared[key])))
         if save_path:
+            if os.path.isdir(save_path) or save_path.endswith(os.sep):
+                save_path = pjoin(save_path, 'repeated_diagrams.pdf')
+            else:
+                extension = os.path.splitext(save_path)[1]
+                if extension.lower() == '.pdf':
+                    pass
+                elif not extension and not os.path.isfile(save_path):
+                    save_path = pjoin(save_path, 'repeated_diagrams.pdf')
+                else:
+                    logger.warning(
+                        'Only .pdf output is supported for --save; ignoring %s.' % save_path)
+                    save_path = None
+        if save_path:
             if not shared:
                 logger.warning('No repeated diagrams to save.')
             else:
                 output_pdf = os.path.abspath(save_path)
                 output_dir = os.path.dirname(output_pdf)
-                if output_dir:
-                    os.makedirs(output_dir, exist_ok=True)
+                try:
+                    if output_dir:
+                        os.makedirs(output_dir, exist_ok=True)
+                except OSError as error:
+                    raise self.InvalidCmd(
+                        'Could not create output directory %s: %s' % (output_dir, error))
                 temp_dir = tempfile.mkdtemp()
                 eps_files = []
                 try:
