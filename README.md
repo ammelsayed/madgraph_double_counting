@@ -80,6 +80,10 @@ check double_counting ... --save=reports/dc/
 The PDF uses MG5's drawing code and Ghostscript. Each page is labelled with
 the process sets where the diagram appears.
 
+## Supported MG5aMC versions
+
+Tested with MG5aMC 3.6.7, 3.7.3 and 3.8.1. Older versions are not supported.
+
 ## Scope
 
 - The comparison is on the full diagram, not only the final state.

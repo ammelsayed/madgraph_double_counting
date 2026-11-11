@@ -18,6 +18,11 @@ from madgraph.interface.madgraph_interface import MadGraphCmd
 logger = logging.getLogger('cmdprint')
 
 
+def get_optional(obj, name):
+    """Read a property that older MG5 objects may not define."""
+    return obj.get(name) if name in obj else None
+
+
 class DoubleCountingInterface(MadGraphCmd):
 
     def do_check(self, line):
@@ -132,20 +137,20 @@ class DoubleCountingInterface(MadGraphCmd):
                         if other in seen:
                             continue
                         children.append(('v', leg.get('id'),
-                                         freeze(leg.get('polarization')),
-                                         freeze(leg.get('onium')),
+                                         freeze(get_optional(leg, 'polarization')),
+                                         freeze(get_optional(leg, 'onium')),
                                          encode(other, other_leg, seen | set([other]))))
                     else:
                         children.append(('e', leg.get('state'), leg.get('id'),
-                                         freeze(leg.get('polarization')),
-                                         freeze(leg.get('onium'))))
+                                         freeze(get_optional(leg, 'polarization')),
+                                         freeze(get_optional(leg, 'onium'))))
                 return (vertices[index].get('id'), tuple(sorted(children)))
 
             keys = []
             for index, leg_index in graph['external']:
                 leg = vertices[index].get('legs')[leg_index]
                 keys.append(('r', leg.get('state'), leg.get('id'),
-                             freeze(leg.get('polarization')), freeze(leg.get('onium')),
+                             freeze(get_optional(leg, 'polarization')), freeze(get_optional(leg, 'onium')),
                              encode(index, leg_index, set([index]))))
             if not keys:
                 raise self.InvalidCmd('check double_counting found an empty diagram')
@@ -329,8 +334,8 @@ class DoubleCountingInterface(MadGraphCmd):
                     ensure_tree(decay)
                 return
             process = amplitude.get('process')
-            if process.get('has_born') is False or \
-                    process.get('NLO_mode') not in (None, 'tree'):
+            if get_optional(process, 'has_born') is False or \
+                    get_optional(process, 'NLO_mode') not in (None, 'tree'):
                 raise self.InvalidCmd(
                     'check double_counting only supports LO tree diagrams')
             for diagram in (amplitude.get('diagrams') or []):
@@ -624,6 +629,6 @@ class DoubleCountingInterface(MadGraphCmd):
 
 
 new_interface = DoubleCountingInterface
-minimal_mg5amcnlo_version = (3, 8, 0)
+minimal_mg5amcnlo_version = (3, 6, 0)
 maximal_mg5amcnlo_version = (3, 9, 99)
 latest_validated_version = (3, 8, 1)
