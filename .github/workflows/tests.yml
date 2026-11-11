@@ -32,7 +32,7 @@ jobs:
           case "$MG5_VERSION" in
             3.6.*) branch=3.6.x ;;
             3.7.*) branch=3.7.x ;;
-            3.8.*) branch=3.8.x ;;
+            3.5.17|3.8.*) branch=3.8.x ;;
             *) echo "Unknown MG5 version: $MG5_VERSION" >&2; exit 1 ;;
           esac
           url="https://launchpad.net/mg5amcnlo/3.0/$branch/+download/MG5_aMC_v$MG5_VERSION.tar.gz"
