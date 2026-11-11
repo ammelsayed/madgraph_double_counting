@@ -124,6 +124,8 @@ class DoubleCountingInterface(MadGraphCmd):
                         if other in seen:
                             continue
                         children.append(('v', leg.get('id'),
+                                         freeze(leg.get('polarization')),
+                                         freeze(leg.get('onium')),
                                          encode(other, other_leg, seen | set([other]))))
                     else:
                         children.append(('e', leg.get('state'), leg.get('id'),
@@ -298,7 +300,24 @@ class DoubleCountingInterface(MadGraphCmd):
                     graphs.extend(productions)
             return graphs
 
+        def ensure_tree(amplitude):
+            if isinstance(amplitude, diagram_generation.DecayChainAmplitude):
+                for sub_amplitude in amplitude.get('amplitudes'):
+                    ensure_tree(sub_amplitude)
+                for decay in amplitude.get('decay_chains'):
+                    ensure_tree(decay)
+                return
+            process = amplitude.get('process')
+            if process.get('has_born') is False:
+                raise self.InvalidCmd(
+                    'check double_counting only supports LO tree diagrams')
+            for diagram in (amplitude.get('diagrams') or []):
+                if 'type' in diagram and diagram.get('type') not in (None, 0):
+                    raise self.InvalidCmd(
+                        'check double_counting only supports LO tree diagrams')
+
         def amplitude_keys(amplitude):
+            ensure_tree(amplitude)
             if isinstance(amplitude, diagram_generation.DecayChainAmplitude):
                 names = ' ; '.join(sub.get('process').nice_string()
                                    for sub in amplitude.get('amplitudes'))
@@ -316,9 +335,6 @@ class DoubleCountingInterface(MadGraphCmd):
                                               ('decay', drawings))
                 return keys
 
-            process = amplitude.get('process')
-            if process.get('has_born') is False:
-                raise self.InvalidCmd('check double_counting only supports LO tree diagrams')
             keys = {}
             for diagram in (amplitude.get('diagrams') or []):
                 graph = build_graph(copy.deepcopy(diagram.get('vertices')))
