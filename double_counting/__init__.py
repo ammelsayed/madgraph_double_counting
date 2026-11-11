@@ -33,6 +33,14 @@ class DoubleCountingInterface(MadGraphCmd):
         text = line.strip()
         if text.startswith('double_counting'):
             text = text[len('double_counting'):].strip()
+        show = 'raw'
+        option = re.search(r'--show(?:=([-\w]+))?', text)
+        if option:
+            show = option.group(1)
+            text = (text[:option.start()] + text[option.end():]).strip()
+            if show not in ('raw', 'chain', 'chain-all'):
+                raise self.InvalidCmd(
+                    'check double_counting accepts --show=raw, --show=chain or --show=chain-all')
         if not text:
             self.help_check()
             raise self.InvalidCmd('check double_counting requires at least one process set')
@@ -110,6 +118,60 @@ class DoubleCountingInterface(MadGraphCmd):
             if not keys:
                 raise self.InvalidCmd('check double_counting found an empty diagram')
             return min(keys)
+
+        def particle_info(pdg):
+            try:
+                particle = self._curr_model.get_particle(abs(pdg))
+            except Exception:
+                return str(pdg), False
+            if not particle:
+                return str(pdg), False
+            if pdg < 0 and not particle.get('self_antipart'):
+                name = particle.get('antiname') or particle.get('name')
+            else:
+                name = particle.get('name')
+            width = particle.get('width')
+            try:
+                value = self._curr_model.get('parameter_dict').get(width, width)
+                has_width = abs(complex(value)) > 0
+            except (TypeError, ValueError):
+                has_width = False
+            return name or str(pdg), has_width
+
+        def chain_description(graph, show_all=False):
+            def ordered_pids(pids):
+                groups = {}
+                order = []
+                for pdg in pids:
+                    key = abs(pdg)
+                    if key not in groups:
+                        groups[key] = []
+                        order.append(key)
+                    groups[key].append(pdg)
+                ordered = []
+                for key in order:
+                    ordered.extend(sorted(groups[key], key=lambda item: -item))
+                return ordered
+
+            vertices = graph['vertices']
+            initial = ordered_pids([vertices[index]['legs'][leg].get('id')
+                                    for index, leg in graph['external']
+                                    if not vertices[index]['legs'][leg].get('state')])
+            final = ordered_pids([vertices[index]['legs'][leg].get('id')
+                                  for index, leg in graph['external']
+                                  if vertices[index]['legs'][leg].get('state')])
+            internal = []
+            for (index, leg), (other, other_leg) in graph['edges'].items():
+                if (index, leg) < (other, other_leg):
+                    internal.append(vertices[index]['legs'][leg].get('id'))
+            if not show_all:
+                internal = [pdg for pdg in internal if particle_info(pdg)[1]]
+            internal = ordered_pids(internal)
+            parts = [' '.join(particle_info(pdg)[0] for pdg in initial)]
+            if internal:
+                parts.append(' '.join(particle_info(pdg)[0] for pdg in internal))
+            parts.append(' '.join(particle_info(pdg)[0] for pdg in final))
+            return ' > '.join(parts)
 
         def remove_fake_root(vertices, process):
             initial_numbers = [leg.get('number') for leg in process.get('legs')
@@ -220,7 +282,9 @@ class DoubleCountingInterface(MadGraphCmd):
                                    for sub in amplitude.get('amplitudes'))
                 keys = {}
                 for graph in decay_full_graphs(amplitude):
-                    keys[graph_key(graph)] = names + '  [with decays]'
+                    keys[graph_key(graph)] = (names + '  [with decays]',
+                                              chain_description(graph),
+                                              chain_description(graph, True))
                 return keys
 
             process = amplitude.get('process')
@@ -229,7 +293,9 @@ class DoubleCountingInterface(MadGraphCmd):
             keys = {}
             for diagram in (amplitude.get('diagrams') or []):
                 graph = build_graph(copy.deepcopy(diagram.get('vertices')))
-                keys[graph_key(graph)] = diagram.nice_string()
+                keys[graph_key(graph)] = (diagram.nice_string(),
+                                          chain_description(graph),
+                                          chain_description(graph, True))
             return keys
 
         def generate_set(processes):
@@ -415,8 +481,9 @@ class DoubleCountingInterface(MadGraphCmd):
             logger.info('No repeated diagrams found across the process sets.')
         else:
             logger.info('%i diagram(s) appear in more than one set:' % len(shared))
-            for key in sorted(shared, key=lambda item: descriptions[item]):
-                logger.info(descriptions[key])
+            display = {'raw': 0, 'chain': 1, 'chain-all': 2}[show]
+            for key in sorted(shared, key=lambda item: descriptions[item][0]):
+                logger.info(descriptions[key][display])
                 logger.info('    found in: ' + ', '.join(sorted(shared[key])))
         return shared
 
