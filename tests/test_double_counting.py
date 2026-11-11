@@ -213,6 +213,26 @@ generate e+ e- > e+ e-
         finally:
             shutil.rmtree(tmpdir)
 
+    def test_check_double_counting_rejects_nlo(self):
+        """only LO tree amplitudes are accepted"""
+        self.do('import model sm')
+        process, _leftover = self.cmd.extract_decay_chain_process(
+            'e+ e- > e+ e-')
+        process.set('NLO_mode', 'virt')
+        amplitude = diagram_generation.Amplitude({
+            'process': process,
+            'diagrams': base_objects.DiagramList()})
+        previous = self.cmd._curr_amps
+        try:
+            self.cmd._curr_amps = diagram_generation.AmplitudeList([amplitude])
+            with self.assertRaises(InvalidCmd) as context:
+                self.cmd.do_check_double_counting(
+                    'double_counting { e+ e- > e+ e- }')
+            self.assertIn('only supports LO tree diagrams',
+                          str(context.exception))
+        finally:
+            self.cmd._curr_amps = previous
+
     def test_check_double_counting_decays(self):
         """check double_counting compares production and decay diagrams"""
         self.do('import model sm')
