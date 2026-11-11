@@ -428,8 +428,13 @@ class DoubleCountingInterface(MadGraphCmd):
                             set(old_definition) != set(new_definition or []):
                         logger.warning('multiparticle "%s" is redefined in the file; '
                                        'using the file definition for this check.' % name)
-                for block in named_sets:
-                    add_set(block['name'], generate_set(block['processes']))
+                first_amplitudes = None
+                for index, block in enumerate(named_sets):
+                    amplitudes = generate_set(block['processes'])
+                    add_set(block['name'], amplitudes)
+                    if index == 0:
+                        first_amplitudes = amplitudes
+                self._curr_amps = first_amplitudes
             finally:
                 self._multiparticles = saved_multiparticles
 
