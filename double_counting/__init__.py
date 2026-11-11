@@ -34,7 +34,7 @@ class DoubleCountingInterface(MadGraphCmd):
         if text.startswith('double_counting'):
             text = text[len('double_counting'):].strip()
         show = 'raw'
-        option = re.search(r'--show(?:=([-\w]*))?', text)
+        option = re.search(r'--show(?:=(\S*))?', text)
         if option:
             value = option.group(1)
             text = (text[:option.start()] + text[option.end():]).strip()
@@ -72,6 +72,14 @@ class DoubleCountingInterface(MadGraphCmd):
                 return tuple(sorted((key, freeze(val)) for key, val in value.items()))
             if isinstance(value, (list, tuple)):
                 return tuple(freeze(val) for val in value)
+            return value
+
+        def definition_key(value):
+            if isinstance(value, dict):
+                return tuple(sorted((key, definition_key(val))
+                                    for key, val in value.items()))
+            if isinstance(value, (list, tuple)):
+                return tuple(sorted(definition_key(val) for val in value))
             return value
 
         def build_graph(vertices, dangling=None):
@@ -472,6 +480,7 @@ class DoubleCountingInterface(MadGraphCmd):
 
             saved_multiparticles = {name: list(value) for name, value in
                                     self._multiparticles.items()}
+            saved_history = list(self.history)
             try:
                 for define_line in header_defines:
                     name = define_line[len('define '):].split('=')[0].strip()
@@ -479,7 +488,7 @@ class DoubleCountingInterface(MadGraphCmd):
                     new_definition = self._multiparticles.get(name)
                     old_definition = saved_multiparticles.get(name)
                     if old_definition is not None and \
-                            set(old_definition) != set(new_definition or []):
+                            definition_key(old_definition) != definition_key(new_definition or []):
                         logger.warning('multiparticle "%s" is redefined in the file; '
                                        'using the file definition for this check.' % name)
                 first_amplitudes = None
@@ -495,6 +504,7 @@ class DoubleCountingInterface(MadGraphCmd):
                 self._export_dir = None
             finally:
                 self._multiparticles = saved_multiparticles
+                self.history = saved_history
 
         else:
             if text.startswith('{'):
