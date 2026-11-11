@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mg5: ["3.6.7", "3.7.3", "3.8.1"]
+        mg5: ["3.5.17", "3.6.7", "3.7.3", "3.8.1"]
 
     steps:
       - uses: actions/checkout@v4
