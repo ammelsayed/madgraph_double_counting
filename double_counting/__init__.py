@@ -41,6 +41,13 @@ class DoubleCountingInterface(MadGraphCmd):
             if show not in ('raw', 'chain', 'chain-all'):
                 raise self.InvalidCmd(
                     'check double_counting accepts --show=raw, --show=chain or --show=chain-all')
+        save_path = None
+        save_option = re.search(r'--save=(?:"([^"]+)"|\'([^\']+)\'|(\S+))', text)
+        if save_option:
+            save_path = next(group for group in save_option.groups() if group)
+            text = (text[:save_option.start()] + text[save_option.end():]).strip()
+        elif re.search(r'--save\b', text):
+            raise self.InvalidCmd('check double_counting requires --save=PATH')
         if not text:
             self.help_check()
             raise self.InvalidCmd('check double_counting requires at least one process set')
@@ -281,10 +288,17 @@ class DoubleCountingInterface(MadGraphCmd):
                 names = ' ; '.join(sub.get('process').nice_string()
                                    for sub in amplitude.get('amplitudes'))
                 keys = {}
+                drawings = []
+                for sub_amplitude in amplitude.get('amplitudes'):
+                    drawings.extend(sub_amplitude.get('diagrams') or [])
+                for decay in amplitude.get('decay_chains'):
+                    for sub_amplitude in decay.get('amplitudes'):
+                        drawings.extend(sub_amplitude.get('diagrams') or [])
                 for graph in decay_full_graphs(amplitude):
                     keys[graph_key(graph)] = (names + '  [with decays]',
                                               chain_description(graph),
-                                              chain_description(graph, True))
+                                              chain_description(graph, True),
+                                              ('decay', drawings))
                 return keys
 
             process = amplitude.get('process')
@@ -295,7 +309,8 @@ class DoubleCountingInterface(MadGraphCmd):
                 graph = build_graph(copy.deepcopy(diagram.get('vertices')))
                 keys[graph_key(graph)] = (diagram.nice_string(),
                                           chain_description(graph),
-                                          chain_description(graph, True))
+                                          chain_description(graph, True),
+                                          ('plain', [diagram]))
             return keys
 
         def generate_set(processes):
@@ -323,7 +338,10 @@ class DoubleCountingInterface(MadGraphCmd):
                         (name, len(amplitudes), len(keys)))
             for key, description in keys.items():
                 owners.setdefault(key, set()).add(name)
-                descriptions.setdefault(key, description)
+                if key not in descriptions:
+                    descriptions[key] = description
+                elif descriptions[key][3][0] != 'plain' and description[3][0] == 'plain':
+                    descriptions[key] = description
 
         if os.path.isfile(text) and '>' not in text and '{' not in text:
             header_import = None
@@ -490,6 +508,36 @@ class DoubleCountingInterface(MadGraphCmd):
             for key in sorted(shared, key=lambda item: descriptions[item][0]):
                 logger.info(descriptions[key][display])
                 logger.info('    found in: ' + ', '.join(sorted(shared[key])))
+        if save_path:
+            if not shared:
+                logger.warning('No repeated diagrams to save.')
+            else:
+                output_pdf = os.path.abspath(save_path)
+                output_dir = os.path.dirname(output_pdf)
+                if output_dir:
+                    os.makedirs(output_dir, exist_ok=True)
+                temp_dir = tempfile.mkdtemp()
+                eps_files = []
+                try:
+                    ordered = sorted(shared, key=lambda item: descriptions[item][0])
+                    for index, key in enumerate(ordered):
+                        drawings = descriptions[key][3][1]
+                        eps_file = pjoin(temp_dir, 'diagram_%04d.eps' % index)
+                        legend = 'found in: ' + ', '.join(sorted(shared[key]))
+                        legend = legend.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
+                        plot = draw.MultiEpsDiagramDrawer(
+                            drawings, eps_file, model=self._curr_model, legend=legend)
+                        plot.draw(opt=draw_lib.DrawOption())
+                        eps_files.append(eps_file)
+                    subprocess.check_call(
+                        ['gs', '-dBATCH', '-dNOPAUSE', '-q', '-sDEVICE=pdfwrite',
+                         '-sOutputFile=' + output_pdf] + eps_files)
+                except (OSError, subprocess.CalledProcessError) as error:
+                    raise self.InvalidCmd(
+                        'Could not save repeated diagrams to %s: %s' % (output_pdf, error))
+                finally:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                logger.info('Saved repeated diagrams to %s' % output_pdf)
         return shared
 
 
