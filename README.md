@@ -8,16 +8,14 @@ rejected explicitly.
 
 ## Install
 
-From a checkout:
+```bash
+./install.sh --mg5 /path/to/MG5_aMC_v3_8_1
+```
+
+Or, from a local clone:
 
 ```bash
 ./install.sh --mg5 /path/to/MG5_aMC_v3_8_1 --from-local
-```
-
-Or, after the repository is published:
-
-```bash
-./install.sh --mg5 /path/to/MG5_aMC_v3_8_1
 ```
 
 `install.sh` copies the plugin into `MG5_aMC/PLUGIN/double_counting` and
@@ -82,7 +80,7 @@ the process sets where the diagram appears.
 
 ## Supported MG5aMC versions
 
-Tested with MG5aMC 3.6.7, 3.7.3 and 3.8.1. Older versions are not supported.
+Tested with MG5aMC 3.5.17, 3.6.7, 3.7.3 and 3.8.1. Older versions are not supported.
 
 ## Scope
 
