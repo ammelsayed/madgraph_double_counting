@@ -19,6 +19,15 @@ class TestDoubleCounting(unittest.TestCase):
     def do(self, line):
         self.cmd.exec_cmd(line)
 
+    def test_help_double_counting(self):
+        """help double_counting documents the plugin's options."""
+        with mock.patch('double_counting.logger') as log:
+            self.cmd.help_double_counting()
+        joined = ' '.join(str(c.args[0]) for c in log.info.call_args_list)
+        self.assertIn('double_counting', joined)
+        self.assertIn('--show', joined)
+        self.assertIn('--save', joined)
+
     def test_check_double_counting_groups(self):
         """check double_counting compares generated and requested diagram sets"""
         self.do('import model sm')

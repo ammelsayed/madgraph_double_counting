@@ -32,6 +32,37 @@ class DoubleCountingInterface(MadGraphCmd):
             return None
         return super(DoubleCountingInterface, self).do_check(line)
 
+    def help_check(self):
+        super(DoubleCountingInterface, self).help_check()
+        logger.info("o double_counting:", '$MG:color:GREEN')
+        logger.info("   Report LO tree diagrams shared by two process sets.")
+        logger.info("   syntax: check double_counting { SET_A } [ { SET_B } ] [OPTIONS]")
+        logger.info("   Type 'help double_counting' for the options and examples.")
+
+    def help_double_counting(self):
+        logger.info("syntax: check double_counting { SET_A } [ { SET_B } ] [OPTIONS]",
+                    '$MG:color:BLUE')
+        logger.info("-- compare the LO tree diagrams of two process sets and",
+                    '$MG:BOLD')
+        logger.info("   report the ones they share.")
+        logger.info("   SET_A / SET_B are brace-delimited process sets, e.g.")
+        logger.info("     { p p > t t~, t > b w+ }")
+        logger.info("   With one set, the generated process is used as the other set.")
+        logger.info("   A file holding named process sets is also accepted.")
+        logger.info("Options:", '$MG:BOLD')
+        logger.info("o --show=raw|chain|chain-all:", '$MG:color:GREEN')
+        logger.info("   How a shared diagram is rendered (default raw). 'chain' shows")
+        logger.info("   u u~ > t t~ > w+ w- b b~; 'chain-all' also shows virtuals.")
+        logger.info("o --save=PATH:", '$MG:color:GREEN')
+        logger.info("   Write the shared diagrams to a PDF (needs Ghostscript).")
+        logger.info("   PATH may be a file or an output directory.")
+        logger.info("Examples:", '$MG:color:GREEN')
+        logger.info("   check double_counting { p p > w+ w- b b~ }")
+        logger.info("   check double_counting { A... } { B... } --show=chain-all --save=dc.pdf")
+        logger.info("Scope: LO tree diagrams only; NLO and loop-induced processes",
+                    '$MG:BOLD')
+        logger.info("   are rejected.")
+
     def do_check_double_counting(self, line):
         """Check the Feynman diagrams shared by two process sets."""
 
